@@ -10,8 +10,6 @@ def loadMovieNames():
             movieNames[int(fields[0])] = fields[1]
     return movieNames
 
-#Python 3 doesn't let you pass around unpacked tuples,
-#so we explicitly extract the ratings now.
 def makePairs( userRatings ):
     ratings = userRatings[1]
     (movie1, rating1) = ratings[0]
@@ -51,34 +49,22 @@ nameDict = loadMovieNames()
 
 data = sc.textFile("/Users/rohan.gupta/Desktop/SParkCourse/ml-100k/u.data")
 
-# Map ratings to key / value pairs: user ID => movie ID, rating
+
 ratings = data.map(lambda l: l.split()).map(lambda l: (int(l[0]), (int(l[1]), float(l[2]))))
 
-# Emit every movie rated together by the same user.
-# Self-join to find every combination.
 joinedRatings = ratings.join(ratings)
 
-# At this point our RDD consists of userID => ((movieID, rating), (movieID, rating))
 
-# Filter out duplicate pairs
 uniqueJoinedRatings = joinedRatings.filter(filterDuplicates)
 
-# Now key by (movie1, movie2) pairs.
 moviePairs = uniqueJoinedRatings.map(makePairs)
 
-# We now have (movie1, movie2) => (rating1, rating2)
-# Now collect all ratings for each movie pair and compute similarity
+
 moviePairRatings = moviePairs.groupByKey()
 
-# We now have (movie1, movie2) = > (rating1, rating2), (rating1, rating2) ...
-# Can now compute similarities.
+
 moviePairSimilarities = moviePairRatings.mapValues(computeCosineSimilarity).cache()
 
-# Save the results if desired
-#moviePairSimilarities.sortByKey()
-#moviePairSimilarities.saveAsTextFile("movie-sims")
-
-# Extract similarities for the movie we care about that are "good".
 if (len(sys.argv) > 1):
 
     scoreThreshold = 0.97
@@ -86,8 +72,6 @@ if (len(sys.argv) > 1):
 
     movieID = int(sys.argv[1])
 
-    # Filter for movies with this sim that are "good" as defined by
-    # our quality thresholds above
     filteredResults = moviePairSimilarities.filter(lambda pairSim: \
         (pairSim[0][0] == movieID or pairSim[0][1] == movieID) \
         and pairSim[1][0] > scoreThreshold and pairSim[1][1] > coOccurenceThreshold)
@@ -98,7 +82,6 @@ if (len(sys.argv) > 1):
     print("Top 10 similar movies for " + nameDict[movieID])
     for result in results:
         (sim, pair) = result
-        # Display the similarity result that isn't the movie we're looking at
         similarMovieID = pair[0]
         if (similarMovieID == movieID):
             similarMovieID = pair[1]
